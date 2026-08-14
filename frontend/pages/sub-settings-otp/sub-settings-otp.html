@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <div style="padding: 30px; color: #cdd6f4; font-family: sans-serif;">
+        <h2 style="color: #a6e3a1; margin-bottom: 5px; border-bottom: 1px solid #313244; padding-bottom: 10px;">
+            📱 Otorisasi Kode OTP Stasiun Kerja
+        </h2>
+        <p style="color: #bac2de; font-size: 0.9rem; margin-bottom: 25px;">
+            Masukkan 6 digit kode aktivasi yang tertera pada layar perangkat baru karyawan untuk membuka gembok akses hardware database.
+        </p>
+
+        <!-- KOTAK PANEL OTORISASI OTP -->
+        <div style="background: #181825; padding: 25px; border-radius: 8px; border: 1px solid #313244; max-width: 500px;">
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 0.85rem; color: #cdd6f4; margin-bottom: 8px; font-weight: bold; letter-spacing: 0.5px;">
+                    INPUT KODE AKTIVASI (6 DIGIT ANGKA)
+                </label>
+                <!-- Input dibatasi maksimal 7 karakter untuk mengakomodasi format strip jika ada -->
+                <input type="text" id="input-otp-device" placeholder="Contoh: 123-456 atau 123456" maxlength="7"
+                       style="width: 100%; padding: 12px; background: #11111b; border: 1px solid #45475a; border-radius: 4px; color: #cdd6f4; font-size: 1.2rem; font-family: monospace; text-align: center; letter-spacing: 4px; box-sizing: border-box; font-weight: bold;">
+            </div>
+
+            <!-- TOMBOL SUBMIT & NOTIFIKASI STATE -->
+            <div style="margin-top: 25px; display: flex; flex-direction: column; gap: 15px;">
+                <button id="btn-submit-otp" 
+                        style="width: 100%; background: #a6e3a1; color: #11111b; border: none; padding: 12px; border-radius: 4px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: opacity 0.2s;"
+                        onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                    SETUJUI PERANGKAT BARU
+                </button>
+                <div id="msg-status-otp" style="font-size: 0.85rem; color: #64748b; text-align: center; font-weight: bold; min-height: 20px;">
+                    Status: Menunggu input.
+                </div>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

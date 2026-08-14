@@ -1,0 +1,25 @@
+{
+  "name": "enterprise-invest",
+  "version": "1.0.0",
+  "description": "Enterprise Grade Desktop Application with 20 Layers of Security",
+  "main": "electron/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "electron .",
+    "start:vps": "node server.js",
+    "prod:vps": "pm2 start server.js --name enterprise-api"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "private": true
+}

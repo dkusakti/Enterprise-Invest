@@ -1,0 +1,420 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    background-color: #02040b; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+
+/* SISTEM DYNAMIC LIGHT LEAKS BACKGROUND */
+.mesh-container {
+    position: absolute;
+    width: 100vw;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    filter: blur(120px);
+    -webkit-filter: blur(120px);
+    opacity: 0.6; 
+}
+
+.fluid-orb {
+    position: absolute;
+    border-radius: 50%;
+    mix-blend-mode: screen; 
+}
+
+.orb-primary {
+    width: 550px;
+    height: 550px;
+    top: -10%;
+    left: -5%;
+    background: radial-gradient(circle, #00f5d4 0%, rgba(0, 187, 249, 0.4) 40%, transparent 70%);
+    animation: auroraWarp 18s ease-in-out infinite alternate;
+}
+
+.orb-secondary {
+    width: 600px;
+    height: 600px;
+    bottom: -15%;
+    right: -5%;
+    background: radial-gradient(circle, #00bbf9 0%, rgba(79, 172, 254, 0.4) 50%, transparent 70%);
+    animation: auroraWarp 24s ease-in-out infinite alternate-reverse;
+}
+
+.orb-accent {
+    width: 450px;
+    height: 450px;
+    top: 25%;
+    left: 30%;
+    background: radial-gradient(circle, #9b5de5 0%, rgba(155, 93, 229, 0.3) 40%, transparent 70%);
+    animation: auroraWarp 15s ease-in-out infinite linear;
+}
+
+@keyframes auroraWarp {
+    0% { transform: translate(0, 0) scale(1) rotate(0deg); border-radius: 50%; }
+    33% { transform: translate(50px, -60px) scale(1.15) rotate(30deg); border-radius: 40% 60% 50% 50%; }
+    66% { transform: translate(-40px, 30px) scale(0.9) rotate(-45deg); border-radius: 60% 40% 60% 40%; }
+    100% { transform: translate(20px, -10px) scale(1.05) rotate(15deg); border-radius: 50%; }
+}
+
+/* VIEWPORT CANVAS SEBAGAI JANGKAR UTAMA */
+.viewport-canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Menghitung sumbu tengah murni secara mutlak */
+    width: 100%;
+    max-width: 440px; 
+    padding: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1;
+}
+
+.login-card-master {
+    position: relative;
+    width: 100%;
+    height: 440px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* LINGKARAN 1: BLOB UTAMA DEPAN (DEEP MIDNIGHT NAVY SOLID) */
+.asymmetric-blob-base {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background: #0a0f1d; 
+    border-radius: 43% 57% 40% 60% / 54% 43% 57% 46%;
+    z-index: 2;
+    border: 1px solid rgba(0, 245, 212, 0.35); 
+    overflow: hidden; 
+    animation: gentlePulse 8s ease-in-out infinite;
+}
+
+/* LINGKARAN 2: BLOB SEKUNDER BELAKANG (HIGH-GLOW PRISMATIC RAY) */
+.asymmetric-blob-secondary {
+    position: absolute;
+    width: 108%;
+    height: 108%;
+    top: -4%;
+    left: -4%;
+    background: linear-gradient(135deg, #00f5d4 0%, #00bbf9 35%, #4facfe 70%, #9b5de5 100%);
+    border-radius: 55% 45% 65% 35% / 40% 60% 35% 65%;
+    z-index: 1;
+    box-shadow: 0 0 50px rgba(0, 245, 212, 0.5), 
+                0 0 95px rgba(0, 187, 249, 0.35),
+                0 0 150px rgba(155, 93, 229, 0.25);
+    overflow: hidden;
+    transform-origin: center center;
+    animation: infiniteOrbit 25s linear infinite; 
+}
+
+.inner-shadow-overlay {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    box-shadow: inset -15px -15px 40px rgba(0, 0, 0, 0.95), 
+                inset 10px 10px 40px rgba(255, 255, 255, 0.02);
+}
+
+.interactive-foreground {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center; /* Mengunci seluruh konten tepat di pusat boks */
+    padding: 40px 0 10px 0; 
+}
+
+@keyframes infiniteOrbit {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes gentlePulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 35px rgba(0, 245, 212, 0.08), 0 30px 60px rgba(0, 0, 0, 0.9);
+    }
+    50% {
+        transform: scale(1.015);
+        box-shadow: 0 0 45px rgba(0, 245, 212, 0.28), 0 35px 70px rgba(0, 0, 0, 0.95);
+    }
+}
+/* ==========================================================================
+   KOMPONEN AVATAR, INTERAKSI FORM INPUT RESPONSIF, & BUTTON TEXT DOUBLE SOLID
+   ========================================================================= */
+
+.avatar-boundary {
+    position: absolute;
+    top: -6%; 
+    width: 22%;
+    aspect-ratio: 1 / 1;
+    background: linear-gradient(135deg, #00f5d4 0%, #00bbf9 100%);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 0 20px rgba(0, 245, 212, 0.4), 0 10px 20px rgba(0, 0, 0, 0.5);
+}
+
+.avatar-gradient-core {
+    width: 90%;
+    height: 90%;
+    background: #0a0f1d; 
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    overflow: hidden;
+}
+
+.user-vector-shape {
+    width: 78%;
+    height: 78%;
+    filter: drop-shadow(0 0 6px #00f5d4);
+}
+
+
+.heading-signin {
+    color: #ffffff;
+    font-size: 1.70rem; /* DIKECILKAN: Dari sebelumnya 2.15rem agar lebih seimbang */
+    font-weight: 800;
+    margin-top: 10px;   /* DIKURANGI: Menyesuaikan jarak atas dengan avatar */
+    margin-bottom: 25px; /* Memberikan ruang napas yang cukup sebelum kolom input */
+    letter-spacing: 0.5px;
+}
+
+
+form {
+    width: 100%;
+    padding: 0 12%; 
+    display: flex;
+    flex-direction: column;
+}
+
+.input-container-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 4%;
+}
+
+.gradient-icon-square {
+    width: 44px;
+    height: 44px;
+    background: #050810;
+    border: 1px solid rgba(0, 245, 212, 0.2);
+    border-radius: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.gradient-icon-square svg {
+    width: 22px;
+    height: 22px;
+    filter: drop-shadow(0 0 5px #00f5d4);
+}
+
+.capsule-field-wrapper {
+    position: relative;
+    flex-grow: 1;
+    margin-left: 4%;
+}
+
+.capsule-field-wrapper input {
+    width: 100%;
+    height: 42px;
+    background-color: #04060c; 
+    border: 1px solid rgba(255, 255, 255, 0.04); 
+    border-radius: 21px;
+    padding: 0 18px;
+    color: #ffffff;
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.input-container-row:hover .capsule-field-wrapper input {
+    border-color: rgba(0, 245, 212, 0.3);
+    background-color: #050814;
+    box-shadow: 0 0 10px rgba(0, 245, 212, 0.1);
+}
+
+.input-container-row:hover .gradient-icon-square {
+    border-color: rgba(0, 245, 212, 0.5);
+    box-shadow: 0 0 15px rgba(0, 245, 212, 0.25);
+}
+
+.capsule-field-wrapper input:focus {
+    border-color: #00f5d4 !important;
+    box-shadow: 0 0 15px rgba(0, 245, 212, 0.4) !important;
+    background-color: #060a16 !important;
+}
+
+.gradient-icon-square, 
+.capsule-field-wrapper input {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.capsule-field-wrapper input::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+#passwordInput {
+    padding-right: 42px;
+}
+
+.eye-toggle-trigger {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    opacity: 0.3;
+    z-index: 10;
+    transition: opacity 0.2s;
+}
+
+.eye-toggle-trigger:hover {
+    opacity: 0.8;
+}
+
+.eye-toggle-trigger svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 3px #00f5d4);
+}
+
+.meta-options-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding-left: 15%; 
+    margin-top: 0.5%;
+    margin-bottom: 8%;
+}
+
+.remember-me-label {
+    display: flex;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+}
+
+.remember-me-label input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.square-indicator-box {
+    height: 11px;
+    width: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    position: relative;
+    margin-right: 6px;
+    transition: all 0.2s;
+}
+
+.remember-me-label input:checked ~ .square-indicator-box {
+    background-color: #00f5d4;
+    border-color: #00f5d4;
+    box-shadow: 0 0 8px #00f5d4;
+}
+
+.remember-me-label input:checked ~ .square-indicator-box::after {
+    content: "";
+    position: absolute;
+    left: 2.5px;
+    top: -0.5px;
+    width: 2.5px;
+    height: 5.5px;
+    border: solid #020408; 
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+}
+
+.label-text-string {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+}
+
+.forgot-password-anchor {
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 11px;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.forgot-password-anchor:hover {
+    color: #00f5d4;
+}
+
+.execution-footer-line {
+    display: flex;
+    flex-direction: column; /* Mengubah susunan menjadi vertikal agar tombol bisa di tengah */
+    align-items: center;    /* Mengunci tombol dan teks pendaftaran tepat di tengah sumbu */
+    width: 100%;
+    padding-left: 0;        /* Menghapus padding kiri bawaan agar tidak berat sebelah */
+    margin-top: 5px;
+}
+
+.primary-login-btn {
+    width: 154px; /* Sedikit disesuaikan ukurannya agar proporsinya pas di tengah */
+    height: 42px;
+    background: linear-gradient(135deg, #00f5d4 0%, #00bbf9 50%, #4facfe 100%);
+    border: none;
+    border-radius: 21px;
+    color: #020408; 
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    box-shadow: none; 
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    margin-bottom: 15px; /* Memberikan jarak aman sebelum teks pendaftaran di bawahnya */
+}
+/* =========================================================
+   🚨 GAYA VISUAL NOTIFIKASI ANTI-BRUTE-FORCE & EROR LOGIN
+   ========================================================= */
+
+/* Gaya saat panel dikunci total selama 15 menit */
+.status-eror-kritis {
+    color: #ff4d4d !important; /* Merah terang menyala */
+    text-shadow: 0 0 10px rgba(255, 77, 77, 0.6), 0 0 20px rgba(255, 77, 77, 0.3); /* Efek neon glow */
+}
+
+/* Gaya saat salah password biasa (Percobaan 1 dan 2) */
+.status-eror-peringatan {
+    color: #fbc531 !important; /* Kuning oranye cerah */
+    text-shadow: 0 0 8px rgba(251, 197, 49, 0.4);
+}

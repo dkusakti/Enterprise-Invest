@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+</head>
+<body>
+    <div style="padding: 30px; color: #cdd6f4; font-family: sans-serif;">
+        <h2 style="color: #89b4fa; margin-bottom: 5px; border-bottom: 1px solid #313244; padding-bottom: 10px;">
+            📜 Log Aktivitas Sistem (Audit Trail)
+        </h2>
+        <p style="color: #bac2de; font-size: 0.9rem; margin-bottom: 25px;">
+            Memantau seluruh jejak riwayat operasi kueri database dan manipulasi data siber oleh para mandor dan karyawan secara real-time.
+        </p>
+
+        <!-- TABEL LOG AKTIVITAS -->
+        <div style="background: #181825; border-radius: 8px; border: 1px solid #313244; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                <thead>
+                    <tr style="background: #11111b; color: #89b4fa; border-bottom: 1px solid #313244;">
+                        <th style="padding: 12px 15px;">Waktu Kejadian (ISO)</th>
+                        <th style="padding: 12px 15px;">Aktor Pengguna</th>
+                        <th style="padding: 12px 15px;">Operasi Aksi</th>
+                        <th style="padding: 12px 15px;">Target Tabel</th>
+                        <th style="padding: 12px 15px;">Status Respon</th>
+                    </tr>
+                </thead>
+                <tbody id="tabel-body-log">
+                    <!-- Baris data log akan disuntikkan dinamis oleh Javascript -->
+                    <tr>
+                        <td colspan="5" style="padding: 20px; text-align: center; color: #64748b;">Memuat riwayat sirkuit audit log...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

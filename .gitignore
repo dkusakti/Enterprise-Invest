@@ -1,0 +1,15 @@
+# Mengabaikan folder dependencies Node.js (Paling Penting)
+node_modules/
+
+# Mengabaikan folder hasil build/distribusi Electron
+dist/
+out/
+
+# Mengabaikan file log error dari npm/yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Mengabaikan file sampah sistem operasi (Mac/Windows)
+.DS_Store
+Thumbs.db

@@ -1,0 +1,295 @@
+database:
+sudo systemctl start postgresql
+sudo -u postgres psql
+
+CREATE DATABASE lab;
+CREATE USER db_enterprise WITH PASSWORD 'dbenterprise';
+GRANT ALL PRIVILEGES ON DATABASE lab TO db_enterprise;
+GRANT ALL ON SCHEMA public TO db_enterprise;
+sudo -u postgres psql -d lab
+GRANT ALL ON SCHEMA public TO db_enterprise;
+psql -U db_enterprise -d lab -h localhost
+
+CREATE TABLE login (
+	id SERIAL PRIMARY KEY
+);
+
+-- Ubah Pemilik (Owner) Tabel Menjadi db_enterprise
+ALTER TABLE login OWNER TO db_enterprise;
+
+-- Menambah kolom username
+ALTER TABLE login ADD COLUMN username VARCHAR(50) UNIQUE NOT NULL;
+
+-- Menambah kolom email
+ALTER TABLE login ADD COLUMN email VARCHAR(100) UNIQUE NOT NULL;
+
+-- Menambah kolom password_hash
+ALTER TABLE login ADD COLUMN password_hash VARCHAR(255) NOT NULL;
+
+-- Waktu pendaftaran otomatis
+ALTER TABLE login ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- Pelacak waktu masuk terakhir
+ALTER TABLE login ADD COLUMN last_login TIMESTAMP;
+
+-- Role
+ALTER TABLE login ADD COLUMN role VARCHAR(20) DEFAULT 'user';
+
+-- Contoh: Menghapus kolom email dari tabel login
+ALTER TABLE login DROP COLUMN email;
+
+\d login
+
+-- Aktifkan Fitur Enkripsi di Postgres
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+INSERT INTO login (username, email, password_hash, role) 
+VALUES (
+	'super_admin', 
+	'master@enterprise.com', 
+	crypt('admin123', gen_salt('bf', 10)), 
+		'master_admin'
+);
+
+SELECT id, username, role, password_hash FROM login;
+SELECT * FROM users_devices;
+TRUNCATE TABLE users_devices;
+
+
+-- Mengubah Password
+UPDATE login 
+SET password_hash = crypt('RahasiaBaru2026', gen_salt('bf', 10)) 
+WHERE username = 'super_admin';
+
+-- Mengubah Username
+UPDATE login 
+SET username = 'ceo_master', 
+email = 'ceo@enterprise.com' 
+WHERE username = 'super_admin';
+
+-- Role
+UPDATE login 
+SET role = 'super_user' 
+WHERE role = 'master_admin';
+
+DELETE FROM login WHERE username = 'budi_retail';
+
+-- Folder,konfigurasi & install express:
+# 1. Buat folder proyek bernama 'enterprise-api' dan masuk ke dalamnya
+mkdir enterprise && cd enterprise
+mkdir backend && cd backend
+
+# 2. Buat file konfigurasi package.json bawaan Node.js
+npm init -y
+
+# 3. Instal Express (Server Web), PG (Konektor Postgres), dan Bcrypt (Enkripsi)
+npm install express pg bcrypt
+
+
+CREATE TABLE users_devices (
+	id SERIAL PRIMARY KEY,
+	user_id INTEGER REFERENCES login(id) ON DELETE CASCADE,
+							device_fingerprint VARCHAR(255) NOT NULL,
+							device_name VARCHAR(100),
+							activation_code VARCHAR(10),
+							is_verified BOOLEAN DEFAULT FALSE,
+							created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+cara menambah menu
+
+Untuk Mengambil Data (Universal/Kolom Tertentu):
+
+const respon = await window.DashboardSecurityContext.panggilMandorFrontend({
+    aksi: 'ambil_data',
+    target_tabel: 'nama_tabel_anda',
+    kolom_diminta: ['kolom_A', 'kolom_B'], // Opsional: Hapus baris ini jika ingin tarik semua kolom
+    role_diizinkan: 'owner.adminmaster'    // Opsional: Hapus baris ini jika boleh dibuka semua role
+});
+
+Untuk Menambah Data Baru (INSERT):
+
+const respon = await window.DashboardSecurityContext.panggilMandorFrontend({
+    aksi: 'tambah_data',
+    target_tabel: 'nama_tabel_anda',
+    data_input: {
+        nama_kolom_db1: 'Nilai Input 1',
+        nama_kolom_db2: 'Nilai Input 2'
+    }
+});
+
+Untuk Menghapus Data Berbasis ID (DELETE):
+
+const respon = await window.DashboardSecurityContext.panggilMandorFrontend({
+    aksi: 'hapus_data',
+    target_tabel: 'nama_tabel_anda',
+    id_target: 5 // Masukkan angka ID baris yang ingin didepak
+});
+
+
+ROLE Menu
+Rumus Baku Menambah 1 Menu Baru sql
+INSERT INTO app_menus (menu_name, folder_name, roles_allowed, icon_visual, sort_order) 
+VALUES ('Nama Menu Layar', 'nama-folder-pages', 'hak.akses.role', 'Emoji', AngkaUrutan);
+
+contoh
+INSERT INTO app_menus (menu_name, folder_name, roles_allowed, icon_visual, sort_order) 
+VALUES ('Simulasi Node', 'simulation', 'all', '🧪', 7);
+
+Rumus Baku Mengubah Data Menu
+UPDATE app_menus 
+SET roles_allowed = 'role_baru_yang_benar' 
+WHERE folder_name = 'nama_folder_menunya';
+
+contoh
+UPDATE app_menus 
+SET roles_allowed = 'owner' 
+WHERE folder_name = 'hash';
+
+Rumus Baku Mengubah nama Menu
+UPDATE app_menus 
+SET menu_section = 'Grafik Analisis'
+WHERE folder_name = 'chart';
+
+SELECT * FROM app_menus;
+
+Keamanan
+1. Enkripsi Kredensial Native Lintas Platform (Data-at-Rest Protection)
+2. Penguncian Runtime Developer Tools & Sandbox (Anti-Reverse Engineering)
+3. Penguncian Hak Akses Modul Node.js (Context Isolation & Sandbox)
+4. Kebijakan Keamanan Konten Ketat (Content Security Policy - CSP)
+5. Pengamanan Alur Navigasi Jendela (Navigation & New Window Restrictions)
+6. Proteksi Memory Dump & Sesi Kedaluwarsa Dinamis
+7. Deteksi Integritas File & SSL/TLS Pinning (Saat Online)
+8. Penyematan Sertifikat SSL (SSL/TLS Pinning)
+9. Proteksi Tangkapan Layar (Anti-Screen Capture / Anti-Spyware)
+10. Pengacakan Kode Frontend (Code Obfuscation)
+11. Validasi Payload Berkas IPC (IPC Parameter Sanitization)
+12. Manajemen Sesi Sisi OS (OS-Level Session Eviction)
+13. Isolasi Proses Render Per Halaman (Process-Per-Tab Isolation)
+14. Pendeteksian Lingkungan Virtual & Debugger (Anti-VM & Anti-Debugging)
+15. Enkripsi Transportasi Data Payload (End-to-End Application Layer Encryption)
+16. Otentikasi Integritas Biner ASAR (ASAR Integrity Checking)
+17. Desensitisasi Data Memori (Memory Scrubbing & Zeroing)
+18. Pembatasan Sesi Berbasis Perangkat (Device Fingerprinting & Binding)
+19. Penangkal Eksekusi Perintah Dinamis (Strict Eval & Function Disabling)
+20. Deteksi Jam Sistem Manipulatif (Anti-Time-Tampering)
+
+├── backend
+│   ├── database
+│   │   ├── pool.js
+│   ├── features
+│   │   ├── login
+│   │   │   ├── login.controller.js
+│   │   │   ├── login.dto.js
+│   │   │   ├── login.repository.js
+│   │   │   ├── login.service.js
+│   │   │   ├── login.validator.js
+│   │   ├── logout
+│   │   │   ├── logout.controller.js
+│   │   │   └── logout.dto.js
+│   │   ├── owner
+│   │   │   ├── live-monitoring
+│   │   │   │   ├── live-monitoring.controller.js
+│   │   │   │   └── live-monitoring.repository.js
+│   │   │   ├── reset-hardware
+│   │   │   │   ├── reset-hardware.controller.js
+│   │   │   │   └── reset-hardware.repository.js
+│   │   │   └── settings
+│   │   │       └── verify-device
+│   │   │           ├── verify-device.controller.js
+│   │   │           ├── verify-device.repository.js
+│   │   │           └── verify-device.service.js
+│   │   └── security
+│   │       ├── anti-brute-force
+│   │       │   ├── anti-brute-force.controller.js
+│   │       │   ├── anti-brute-force.dto.js
+│   │       │   └── anti-brute-force.service.js
+│   │       ├── device-binding-validation
+│   │       │   ├── device-binding-validation.controller.js
+│   │       │   ├── device-binding-validation.dto.js
+│   │       │   ├── device-binding-validation.repository.js
+│   │       │   └── device-binding-validation.service.js
+│   │       ├── hardware-fingerprint
+│   │       │   ├── hardware-fingerprint.controller.js
+│   │       │   ├── hardware-fingerprint.dto.js
+│   │       │   └── hardware-fingerprint.service.js
+│   │       └── jwt-token
+│   │           ├── jwt-token.controller.js
+│   │           ├── jwt-token.dto.js
+│   │           ├── jwt-token.service.js
+│   └── infrastructure
+│       └── ipc
+│           ├── mandor-backend.js
+│           └── mandor-frontend.js
+├── doc.txt
+├── electron
+│   ├── main.js
+│   └── preloads
+│       ├── dashboard.preload.js
+│       └── login.preload.js
+├── frontend
+│   ├── assets
+│   │   ├── logo-lain
+│   │   └── logo-menu
+│   │       ├── chart.png
+│   │       ├── dashboard.png
+│   │       ├── detail.png
+│   │       ├── device.png
+│   │       ├── hash.png
+│   │       ├── hasil.png
+│   │       ├── info.png
+│   │       ├── logout.png
+│   │       ├── log.png
+│   │       ├── role.png
+│   │       ├── settings.png
+│   │       └── tema.png
+│   ├── main.css
+│   ├── main.html
+│   ├── main.js
+│   └── pages
+│       ├── activity-log
+│       │   ├── activity-log.css
+│       │   ├── activity-log.html
+│       │   └── activity-log.js
+│       ├── chart
+│       ├── dashboard
+│       │   ├── dashboard.html
+│       │   └── dashboard.js
+│       ├── header
+│       ├── login
+│       │   ├── login.css
+│       │   ├── login.html
+│       │   └── login.js
+│       ├── role
+│       │   ├── role.css
+│       │   ├── role.html
+│       │   └── role.js
+│       ├── settings
+│       │   ├── settings.html
+│       │   └── settings.js
+│       ├── sidebar
+│       │   ├── sidebar.css
+│       │   ├── sidebar.html
+│       │   └── sidebar.js
+│       ├── sub-chart-detail
+│       ├── sub-chart-hasil
+│       ├── sub-chart-info
+│       └── sub-role-hash
+│           ├── sub-role-hash.css
+│           ├── sub-role-hash.html
+│           └── sub-role-hash.js
+├── package.json
+├── package-lock.json
+└── Prosedur.txt
+
+1. Folder live-monitoringMengurusi sirkuit data pemantauan berkala stasiun kerja yang sedang aktif.live-monitoring.controller.js: Menerima perintah dari mandor-backend.js (aksi CHECK_HEARTBEAT_AND_DEVICES), membersihkan data, dan memformat array agar siap dikonsumsi oleh tabel HTML dashboard.live-monitoring.repository.js: Berisi kueri SQL mentah untuk berkomunikasi dengan PostgreSQL guna menarik data relasi seluruh komputer dari tabel users_devices.🛡️ 
+2. Folder render-policyMengurusi pembatasan menu visual berdasarkan tingkatan jabatan (Role-Based UI Isolation).render-policy.controller.js: Membaca variabel currentSessionRole yang dikirim dari main.js, lalu menentukan aturan grafis apa saja yang boleh dilihat (misal: jika role user, maka tombol reset akan dihancurkan dari layar visual).render-policy.dto.js: Data Transfer Object yang bertugas mengunci struktur data polis agar format objek yang dikirim ke frontend selalu seragam dan aman dari anomali.
+3. Folder reset-hardwareFitur darurat (Emergency Brake) untuk membersihkan seluruh data binding komputer.reset-hardware.controller.js: Menangani perintah pembersihan. Karena ini aksi sakral, kontroler ini memastikan bahwa kueri hanya berjalan jika gerbang main.js mengonfirmasi pelakunya adalah owner/adminmaster.reset-hardware.repository.js: Berisi kueri SQL mutlak TRUNCATE TABLE users_devices untuk menyapu bersih seluruh baris stasiun kerja karyawan di PostgreSQL dalam satu detik jika terjadi pelanggaran keamanan massal.
+4. Folder settings (Pengaturan Perangkat)Folder ini dibagi menjadi dua sub-fitur untuk mengurusi pendaftaran komputer baru milik karyawan:A. Sub-Folder get-verified-devices (Mengambil Perangkat Sah)Membaca database untuk memisahkan mana laptop/PC karyawan yang statusnya sudah sah disetujui, dan mana stasiun kerja yang masih berstatus terkunci/pending.
+B. Sub-Folder verify-device (Otorisasi Aktivasi OTP Perangkat Baru)verify-device.controller.js: Menyaring input kiriman kode aktivasi dari panel Admin di frontend.verify-device.service.js: Otak bisnis fitur. Bertugas memeriksa apakah panel sedang dibekukan akibat salah ketik berulang kali (anti-brute-force), lalu mencocokkan kode OTP. Jika cocok, hitungan kesalahan di-reset kembali ke 0.verify-device.repository.js: Mengeksekusi query SQL UPDATE ke database untuk mengubah status perangkat terkait menjadi is_verified = TRUE setelah kodenya dinyatakan sah oleh bagian service.
+
+1. 📄 feature.dto.js (Lapis 1: Satpam Validasi Objek)Tugas: Menyaring objek data (payload) yang baru masuk dari frontend.Aturan: File ini memastikan apakah variabel yang dikirim tipenya benar (misal: ID harus angka, OTP harus string). Jika salah, data langsung ditolak di sini sebelum membebani database.
+2. 📄 feature.controller.js (Lapis 2: Polisi Lalu Lintas Data)Tugas: Menerima data dari mandor-backend.js, menyerahkannya ke DTO untuk diperiksa, lalu melemparkannya ke Service.Aturan: Tidak boleh ada query database atau logika bisnis di sini. Tugasnya hanya mengontrol alur masuk-keluar data.
+3. 📄 feature.service.js (Lapis 3: Otak Logika Bisnis)Tugas: Melakukan perhitungan, pengecekan hak akses, pemotongan string, manipulasi keamanan (anti-brute-force), atau panggilan API luar.Aturan: Ini adalah tempat menulis rumus matematika dan aturan bisnis aplikasi Anda. Jika logika selesai, dia memanggil Repository untuk menyimpan hasilnya.
+4. 📄 feature.repository.js (Lapis 4: Tukang Gali Database)Tugas: Menulis string query SQL mentah (SELECT, INSERT, UPDATE, DELETE) menggunakan dbPool.Aturan: Hanya boleh berisi perintah komunikasi mentah ke PostgreSQL. File ini tidak boleh tahu apa itu token JWT atau logika bisnis, dia hanya patuh mengeksekusi perintah SQL.

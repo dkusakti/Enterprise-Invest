@@ -1,0 +1,32 @@
+<!-- frontend/pages/dashboard/dashboard.html -->
+<div style="padding: 10px; font-family: sans-serif; color: #fff;">
+    
+    <!-- HEADER ATAS DASHBOARD IOT MURNI -->
+    <div style="margin-bottom: 25px;">
+        <h3 style="margin: 0; color: #00a8ff; font-weight: 600;">📊 Live IoT Infrastruktur & Monitoring</h3>
+        <p style="color: #7f8c8d; font-size: 13px; margin: 5px 0 0 0;">Sirkuit pemantauan sensor dan stasiun kerja yang terikat ke pusat data pool.</p>
+    </div>
+
+    <!-- KERANGKA TABEL UTAMA -->
+    <table style="width: 100%; border-collapse: collapse; text-align: left; background: rgba(30, 30, 46, 0.4); border-radius: 8px; overflow: hidden;">
+        <thead>
+            <tr style="color: #00a8ff; border-bottom: 2px solid #353b48; font-size: 13px; text-transform: uppercase; background: #1e1e2e;">
+                <th style="padding: 14px 15px;">ID Karyawan</th>
+                <th style="padding: 14px 15px;">Nama Stasiun Kerja</th>
+                <th style="padding: 14px 15px;">Potongan Sidik Jari (Hash)</th>
+                <th style="padding: 14px 15px;">Status Gembok</th>
+            </tr>
+        </thead>
+        <!-- 🔐 TEMPAT SUNTIKAN .APPENDCHILD OLEH DASHBOARD.JS -->
+        <tbody id="tabel-live-monitoring">
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 40px; color: #7f8c8d; font-style: italic;">
+                    Menunggu sinyal detak jantung...
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Pemanggilan skrip khusus pengendali panggung dashboard IoT -->
+<script src="./pages/dashboard/dashboard.js"></script>

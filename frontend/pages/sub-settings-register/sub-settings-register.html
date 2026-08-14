@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"></head>
+<body>
+    <div style="padding: 30px; color: #cdd6f4; font-family: sans-serif;">
+        <h2 style="color: #f38ba8; margin-bottom: 5px; border-bottom: 1px solid #313244; padding-bottom: 10px;">
+            👤 Registrasi Akun Karyawan Baru
+        </h2>
+        <p style="color: #bac2de; font-size: 0.9rem; margin-bottom: 25px;">
+            Sistem otomatisasi penomoran username (DDMMYYNN) berdasarkan urutan pembuatan hari ini.
+        </p>
+
+        <div style="background: #181825; padding: 25px; border-radius: 8px; border: 1px solid #313244; max-width: 500px;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; font-size: 0.85rem; color: #cdd6f4; margin-bottom: 8px; font-weight: bold;">PILIH KASTA PERAN (ROLE)</label>
+                <select id="select-register-role" style="width: 100%; padding: 10px; background: #11111b; border: 1px solid #45475a; border-radius: 4px; color: #cdd6f4;">
+                    <option value="user">USER (Karyawan Standar)</option>
+                    <option value="superuser">SUPERUSER (Supervisor/Mandor)</option>
+                    <option value="adminmaster">ADMIN MASTER (Pengatur Sistem)</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 0.85rem; color: #cdd6f4; margin-bottom: 8px; font-weight: bold;">KATA SANDI DEFAULT</label>
+                <input type="text" id="input-register-pass" value="Invest2026" style="width: 100%; padding: 10px; background: #11111b; border: 1px solid #45475a; border-radius: 4px; color: #a6e3a1; font-family: monospace; box-sizing: border-box;">
+            </div>
+            <button id="btn-submit-register" style="width: 100%; background: #f38ba8; color: #11111b; border: none; padding: 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                GENERASI AKUN BARU
+            </button>
+            
+            <!-- HALAMAN KOTAK RESI HASIL CETAK -->
+            <div id="box-hasil-cetak" style="display: none; margin-top: 20px; padding: 15px; background: #11111b; border: 1px dashed #a6e3a1; border-radius: 4px;">
+                <h4 style="color: #a6e3a1; margin: 0 0 10px 0;">🎉 Berhasil Mencetak Akun Baru:</h4>
+                <p style="margin: 5px 0; font-size: 0.9rem;">ID USERNAME: <strong id="res-username" style="color: #f9e2af; font-family: monospace;">-</strong></p>
+                <p style="margin: 5px 0; font-size: 0.9rem;">PASSWORD: <strong id="res-password" style="color: #a6e3a1; font-family: monospace;">-</strong></p>
+                <p style="margin: 5px 0; font-size: 0.9rem;">PERAN (ROLE): <strong id="res-role" style="color: #89b4fa;">-</strong></p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

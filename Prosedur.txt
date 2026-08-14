@@ -1,0 +1,94 @@
+Berikut adalah draf arsitektur proyek Enterprise Electron yang telah dirapikan, dihilangkan redundansinya, serta dibuat menjadi instruksi yang tegas, jelas, dan siap pakai sebagai panduan mutlak tim pengembang.
+------------------------------
+## Panduan Arsitektur & Keamanan Proyek Enterprise Electron
+Lokasi Proyek: /home/lab-ge/Documents/electron/Enterprise/
+------------------------------
+## 🛠️ Aturan Struktur Kode & Desain## 1. Filosofi Folder & Berkas
+
+* Satu Folder = Satu Tanggung Jawab: Setiap folder hanya mengurus satu modul spesifik (Contoh: Folder login/ hanya untuk login, bukan digabung dalam folder auth/ yang berisi banyak proses).
+* Satu Berkas = Satu Fungsi (SRP): Setiap berkas hanya memiliki satu fungsi utama (Contoh: login.controller.js hanya menangani kontrol alur login, dilarang keras memasukkan fungsi logout atau refresh token).
+* Pola Pengorganisasian Fitur (Feature First): Semua layer pendukung fitur harus berada di dalam folder fitur tersebut. Dilarang menempatkan file layer di luar folder fiturnya.
+* Penamaan Berkas Spesifik: Gunakan nama fitur sebagai awalan berkas. Dilarang menggunakan nama generik seperti controller.js atau service.js.
+* Bukan Over-Engineering: Jika sebuah layer (seperti policy atau event) belum dibutuhkan, jangan dibuat. Hindari membuat folder atau berkas kosong.
+
+## 2. Standar Penamaan Modul (Use Case Standar)
+Jika membuat fitur (misal: login), struktur wajibnya adalah:
+
+login/
+├── login.route.js
+├── login.controller.js
+├── login.service.js
+├── login.repository.js
+├── login.validator.js
+├── login.dto.js
+├── login.policy.js
+└── login.event.js
+
+## 3. Standar Frontend (UI Layer)
+
+* Halaman Mandiri: Setiap halaman wajib memiliki 3 berkas utama:
+
+dashboard/
+├── dashboard.html
+├── dashboard.css
+└── dashboard.js
+
+* Komponen Khusus: Komponen yang hanya dipakai di halaman tersebut diletakkan di dalam folder halaman (Contoh: dashboard/components/summary-card/).
+* Komponen Global: Komponen yang digunakan lintas halaman wajib diletakkan di frontend/components/.
+
+------------------------------
+## 🧱 Batasan Tanggung Jawab Layer (Aturan Mutlak)
+Setiap layer memiliki batasan tegas yang tidak boleh dilanggar:
+
+* IPC / Route: Hanya menerima sinyal/request dari frontend dan meneruskannya ke middleware/validator.
+* Middleware: Hanya menangani pra-proses seperti autentikasi, enkripsi, dan pengecekan sesi.
+* Validator: Hanya melakukan validasi format, tipe data, dan skema input data.
+* DTO (Data Transfer Object): Hanya melakukan pemetaan (mapping) dan penyaringan data agar sesuai kebutuhan sistem.
+* Controller: Hanya menerima request, memanggil service, dan mengembalikan response. Dilarang ada logika bisnis di sini.
+* Service: Tempat mutlak seluruh Logika Bisnis (Business Logic).
+* Repository: Hanya berisi query mentah atau ORM ke database PostgreSQL.
+* HTML & CSS: Murni hanya untuk tampilan visual dan gaya statis.
+* JS Page: Hanya menangani interaksi elemen UI pada halaman dan memanggil API Client/Service Frontend.
+
+------------------------------
+## 🏎️ Standar Teknologi & Eksekusi Kode
+
+* Runtime & Database: Menggunakan Electron, Node.js, dan PostgreSQL.
+* Modul & Asinkronus: Wajib menggunakan ES Module (import/export) dan Async/Await untuk seluruh proses asinkronus.
+* Anti-Hardcode: Seluruh konfigurasi sistem, kredensial, dan alamat database wajib disimpan di file .env. Migrasi ke VPS hanya boleh dilakukan dengan mengubah isi berkas .env.
+* Sistem Autentikasi: Menggunakan JWT (JSON Web Token) + Refresh Token ditambah dengan metode penguncian perangkat (Device Binding).
+* Kompatibilitas: Aplikasi harus dapat berjalan lancar di Windows, Linux, dan macOS dalam mode Fullscreen.
+* Zero-Duplication: Dilarang menduplikasi kode. Fungsi yang digunakan bersama wajib diletakkan di folder shared/.
+
+------------------------------
+## 🧬 Alur Kerja Data (Data Flow)## Alur Backend (Saat Menerima Request)
+Request→Route→Middleware→Validator→DTO→Controller→Service→Repository→Database→Response
+
+## Alur Frontend (Saat Interaksi Pengguna)
+Electron→HTML→JavaScript→Service Frontend→API Client→Backend→Response→Update UI
+
+------------------------------
+## 🛡️ Matriks 20 Lapis Keamanan (Siap Audit Parrot OS)
+
+| No | Lapisan Keamanan | Deskripsi Teknis Tindakan |
+| 1 | Enkripsi Kredensial Native | Simpan data rahasia lokal (data-at-rest) menggunakan modul native OS (seperti safeStorage milik Electron atau sistem Keychain OS). |
+| 2 | Proteksi DevTools & Sandbox | Matikan akses Developer Tools pada mode produksi dan aktifkan fitur sandbox: true pada BrowserWindow. |
+| 3 | Isolasi Modul Node.js | Aktifkan contextIsolation: true dan pastikan nodeIntegration: false pada sisi renderer process. |
+| 4 | CSP Ketat | Terapkan Content Security Policy (CSP) ketat pada header HTML untuk mencegah injeksi skrip asing (XSS). |
+| 5 | Pembatasan Navigasi Jendela | Batasi pembuatan jendela baru (new-window) dan cegah navigasi asing yang tidak terdaftar di whitelist. |
+| 6 | Proteksi Memory Dump | Lakukan pembersihan variabel sensitif dari memori segera setelah digunakan dan terapkan durasi kedaluwarsa sesi yang dinamis. |
+| 7 | Deteksi Integritas File | Buat sistem verifikasi checksum berkas aplikasi saat startup untuk mendeteksi adanya modifikasi ilegal. |
+| 8 | SSL/TLS Pinning | Kunci sertifikat SSL/TLS server tujuan pada aplikasi untuk menangkal serangan Man-in-the-Middle (MitM). |
+| 9 | Proteksi Tangkapan Layar | Aktifkan fungsi setContentProtection(true) pada window untuk memblokir screen capture dan aplikasi spyware perekam layar. |
+| 10 | Pengacakan Kode (Obfuscation) | Lakukan proses obfuscation dan minification pada seluruh kode frontend sebelum di-build. |
+| 11 | Sanitasi Parameter IPC | Validasi dan bersihkan secara ketat setiap payload data yang dikirim melalui IPC (Inter-Process Communication). |
+| 12 | Manajemen Sesi Sisi OS | Hapus session token secara paksa dari penyimpanan lokal jika aplikasi mendeteksi OS memasuki mode lock, sleep, atau suspend. |
+| 13 | Isolasi Proses Per Halaman | Pastikan setiap halaman web atau jendela berjalan pada proses render terpisah (Process-Per-Tab Isolation). |
+| 14 | Anti-VM & Anti-Debugging | Masukkan skrip deteksi lingkungan virtual (seperti VirtualBox/VMware) dan pasang jebakan debugger guna menyulitkan proses reverse engineering. |
+| 15 | Enkripsi End-to-End Payload | Enkripsi data sensitif langsung di layer aplikasi sebelum dikirim via jaringan, menggunakan algoritma simetris yang kuat (misal: AES-GCM). |
+| 16 | Verifikasi Integritas ASAR | Pastikan fitur pengecekan integritas biner paket ASAR aktif saat proses kompilasi aplikasi dilakukan. |
+| 17 | Desensitisasi Memori | Gunakan metode pengosongan nilai memori (Memory Scrubbing/Zeroing) pada buffer data setelah proses kriptografi selesai. |
+| 18 | Pembatasan Perangkat | Ambil sidik jari perangkat (Device Fingerprinting) untuk mengunci akun pengguna agar hanya bisa diakses dari perangkat yang sah (Device Binding). |
+| 19 | Blokir Eksekusi Dinamis | Larang keras penggunaan fungsi eval(), new Function(), atau eksekusi string dinamis lainnya di dalam aplikasi. |
+| 20 | Anti-Time-Tampering | Bandingkan jam sistem lokal dengan NTP server tepercaya secara berkala untuk mencegah manipulasi waktu lokal demi memperpanjang token. |
+------------------------------

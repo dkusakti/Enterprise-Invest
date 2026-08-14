@@ -1,0 +1,100 @@
+<aside
+    id="enterprise-sidebar"
+    class="enterprise-sidebar"
+    aria-label="Navigasi utama">
+
+   <!-- =========================================================
+     BRAND
+     ========================================================= -->
+<!-- TAMBAHAN: Logo diletakkan di paling atas sebelum text secure -->
+<div style="text-align: center; padding: 20px 0 10px 0;">
+    <img 
+        src="assets/avatar/logo.png" 
+        alt="Logo Enterprise" 
+        style="
+            max-width: 55px;      /* Membatasi ukuran maksimal agar tidak kegedean */
+            width: 80%;          /* Responsif mengikuti batas max-width */
+            aspect-ratio: 1 / 1;  /* Menjaga rasio kotak sempurna agar lingkaran tidak lonjong */
+            object-fit: cover;    /* Memastikan gambar terpotong rapi di dalam lingkaran */
+            display: block; 
+            margin: 0 auto;
+        "
+    />
+</div>
+
+    <!-- ========================================================
+         NAVIGATION
+         ========================================================= -->
+
+    <div class="sidebar-section-label">
+
+        <span>
+            NAVIGATION
+        </span>
+
+        <i></i>
+
+    </div>
+
+
+    <!-- =========================================================
+         IMPORTANT:
+         ID INI HARUS TETAP.
+         main.js MENGISI MENU DATABASE DI SINI.
+         ========================================================= -->
+
+    <nav
+        id="wadah-menu-dinamis"
+        class="sidebar-menu"
+        aria-label="Menu aplikasi"
+    >
+    </nav>
+
+
+    <!-- =========================================================
+         FOOTER
+         ========================================================= -->
+
+    <div class="sidebar-footer">
+
+        <button
+            id="btn-logout"
+            class="sidebar-logout"
+            type="button"
+        >
+
+            <span class="logout-icon">
+
+                <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                >
+                    <path d="M10 17l5-5-5-5"></path>
+                    <path d="M15 12H3"></path>
+                    <path d="M21 19V5a2 2 0 0 0-2-2h-7"></path>
+                </svg>
+
+            </span>
+
+            <span class="logout-text">
+                Keluar Sistem
+            </span>
+
+        </button>
+
+
+        <div class="sidebar-secure">
+
+            <span>
+                SECURE SESSION
+            </span>
+
+            <small>
+                v1.0
+            </small>
+
+        </div>
+
+    </div>
+
+</aside>

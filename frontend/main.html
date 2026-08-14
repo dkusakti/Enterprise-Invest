@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="theme-color"
+        content="#071014"
+    >
+
+    <title>Enterprise Invest System</title>
+
+    <!-- Global -->
+    <link rel="stylesheet" href="./main.css">
+
+    <!-- Header -->
+    <link
+        rel="stylesheet"
+        href="./components/header/header.css"
+    >
+
+    <!-- Sidebar -->
+    <link
+        rel="stylesheet"
+        href="./components/sidebar-collapse/sidebar-collapse.css"
+    >
+</head>
+
+<body>
+
+    <!-- =========================================================
+         APPLICATION SHELL
+         ========================================================= -->
+
+    <div
+        id="enterprise-app"
+        class="enterprise-app"
+    >
+
+        <!-- =====================================================
+             SIDEBAR
+             ===================================================== -->
+
+        <div
+            id="sidebar-root"
+            class="sidebar-root"
+        ></div>
+
+
+        <!-- =====================================================
+             MAIN AREA
+             ===================================================== -->
+
+        <div
+            id="main-wrapper"
+            class="main-wrapper"
+        >
+
+            <!-- HEADER COMPONENT -->
+
+            <div
+                id="header-root"
+                class="header-root"
+            ></div>
+
+
+            <!-- PAGE CONTENT -->
+
+            <main
+                id="panggung-konten"
+                class="panggung"
+                tabindex="-1"
+            >
+
+                <section
+                    class="workspace-loading"
+                    aria-live="polite"
+                >
+
+                    <div class="workspace-loader">
+
+                        <div
+                            class="workspace-loader-ring"
+                            aria-hidden="true"
+                        ></div>
+
+                        <div class="workspace-loader-copy">
+
+                            <strong>
+                                ENTERPRISE
+                            </strong>
+
+                            <span>
+                                Initializing secure workspace...
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+            </main>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================================
+         MAIN APPLICATION CONTROLLER
+         ========================================================= -->
+
+    <script src="./main.js"></script>
+
+</body>
+</html>
