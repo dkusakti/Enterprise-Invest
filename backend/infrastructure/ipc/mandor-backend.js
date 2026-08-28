@@ -18,6 +18,18 @@ const PERAN_EKSKLUSIF_MANDOR = {
   REGISTER_USER: ['owner', 'adminmaster']
 };
 const normalizeRole = (role) => String(role || 'user').trim().toLowerCase().replace(/\s+/g, '');
+const createRateLimiter = ({ windowMs, max }) => {
+  const buckets = new Map();
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = `${req.ip}:${req.path}`;
+    const current = buckets.get(key);
+    if (!current || current.resetAt <= now) buckets.set(key, { count: 1, resetAt: now + windowMs });
+    else if (++current.count > max) return res.status(429).json({ success: false, error: 'Terlalu banyak request. Silakan coba lagi nanti.' });
+    res.set('X-RateLimit-Limit', String(max));
+    return next();
+  };
+};
 
 const MandorBackend = {
   eksekusiAksiSpesifik: async (action, data, currentSessionRole) => {
@@ -49,7 +61,15 @@ const MandorBackend = {
     const __dirname = path.dirname(__filename);
     const appExpress = express();
     appExpress.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
+    appExpress.disable('x-powered-by');
     appExpress.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '100kb' }));
+    appExpress.use((req, res, next) => {
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.set('X-Frame-Options', 'DENY');
+      res.set('Referrer-Policy', 'no-referrer');
+      if (process.env.APP_ENV === 'production' || process.env.NODE_ENV === 'production') res.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+      next();
+    });
     appExpress.use(express.static(path.join(__dirname, '../../..', 'frontend')));
 
     const vpsRoleGuard = (actionName) => (req, res, next) => {
@@ -60,24 +80,22 @@ const MandorBackend = {
     };
 
     appExpress.get('/health', checkDbHealth);
-    appExpress.post('/api/login', loginController.handleExpressLogin);
-    appExpress.post('/api/token/refresh', jwtTokenController.expressRotateSessionToken);
+    appExpress.post('/api/login', createRateLimiter({ windowMs: 60_000, max: 10 }), loginController.handleExpressLogin);
+    appExpress.post('/api/token/refresh', createRateLimiter({ windowMs: 60_000, max: 20 }), jwtTokenController.expressRotateSessionToken);
     appExpress.post('/api/logout', jwtTokenController.expressAuthenticateToken, logoutController.handleExpressLogout);
-
     appExpress.get('/api/owner/monitoring', jwtTokenController.expressAuthenticateToken, vpsRoleGuard('CHECK_HEARTBEAT_AND_DEVICES'), liveMonitoringController.handleExpressTableUpdate);
     appExpress.post('/api/settings/verify-device', jwtTokenController.expressAuthenticateToken, vpsRoleGuard('APPROVE_DEVICE'), VerifyDeviceController.handleExpressVerify);
     appExpress.post('/api/owner/reset-hardware', jwtTokenController.expressAuthenticateToken, vpsRoleGuard('TRUNCATE_HARDWARE_DATA'), resetHardwareController.handleExpressEmergencyReset);
     appExpress.post('/api/owner/register-user', jwtTokenController.expressAuthenticateToken, vpsRoleGuard('REGISTER_USER'), accountManagerController.registerNewUser);
     appExpress.post('/api/user/change-password', jwtTokenController.expressAuthenticateToken, accountManagerController.changePasswordSelf);
     appExpress.post('/api/dynamic/crud', jwtTokenController.expressAuthenticateToken, MandorFrontend.handleExpressDynamicCRUD);
-
     appExpress.use((err, req, res, next) => {
       console.error(`[EXPRESS_GLOBAL_ERROR] ${err.message}`);
       if (res.headersSent) return next(err);
       return res.status(500).json({ status: 'error', message: 'Kesalahan sistem internal.' });
     });
-
     const vpsPort = parseInt(process.env.PORT || '3000', 10);
+    if (!Number.isInteger(vpsPort) || vpsPort < 1 || vpsPort > 65535) throw new Error('PORT tidak valid.');
     return appExpress.listen(vpsPort, () => console.log(`[EXPRESS_SUCCESS] Server aktif pada port ${vpsPort}`));
   }
 };
