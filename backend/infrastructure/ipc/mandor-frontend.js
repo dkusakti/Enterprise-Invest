@@ -1,10 +1,11 @@
 import db from '../../database/pool.js';
 
 const CACHE_STRUKTUR_RAM = new Map();
-const PROTECTED_TABLES = new Set(['login', 'auth_sessions', 'schema_migrations', 'app_menus']);
+const PROTECTED_TABLES = new Set(['login', 'auth_sessions', 'schema_migrations']);
+const READ_ONLY_TABLES = new Set(['app_menus', 'activity_log']);
 const SENSITIVE_COLUMNS = new Set(['password', 'password_hash', 'refresh_token', 'refresh_token_hash', 'otp_secret']);
 const ROLE_ALIASES = { admin: 'adminmaster', master_admin: 'adminmaster', super_user: 'superuser' };
-const normalizeRole = (role) => ROLE_ALIASES[String(role || 'user').trim().toLowerCase().replace(/\s+/g, '')] || String(role || 'user').trim().toLowerCase().replace(/\s+/g, '');
+const normalizeRole = (role) => { const r = String(role || 'user').trim().toLowerCase().replace(/\s+/g, ''); return ROLE_ALIASES[r] || r; };
 const quoteIdentifier = (value) => `"${String(value).replace(/"/g, '""')}"`;
 const audit = async (user, action, table, status) => {
   try { await db.query(`INSERT INTO activity_log (user_id, username, action_name, target_table, status) VALUES ($1,$2,$3,$4,$5)`, [user?.id || null, user?.username || 'unknown_user', String(action), String(table), String(status)]); }
@@ -22,11 +23,18 @@ const MandorFrontend = {
     if (!table || !['ambil_data', 'tambah_data', 'hapus_data'].includes(aksi)) return { status: 'ERROR', pesan: 'Operasi CRUD tidak valid.' };
     if (!/^[a-z_][a-z0-9_]{0,62}$/.test(table)) return { status: 'ERROR', pesan: 'Nama tabel tidak valid.' };
     if (PROTECTED_TABLES.has(table)) return { status: 'ERROR', pesan: 'Akses ke resource sistem ditolak.' };
+    if (READ_ONLY_TABLES.has(table) && aksi !== 'ambil_data') return { status: 'ERROR', pesan: 'Resource hanya dapat dibaca.' };
     try {
       const menu = await db.query(`SELECT roles_allowed FROM app_menus WHERE LOWER(folder_name) = $1 LIMIT 1`, [table]);
-      if (menu.rowCount !== 1) { await audit(contextUser, aksi, table, 'BLOCKED_TABLE_NOT_WHITELISTED'); return { status: 'ERROR', pesan: 'Resource tidak terdaftar.' }; }
-      const allowedRoles = String(menu.rows[0].roles_allowed || '').split(/[,.]/).map(normalizeRole).filter(Boolean);
-      if (!(allowedRoles.includes('all') || allowedRoles.includes(role))) { await audit(contextUser, aksi, table, 'BLOCKED_ROLE'); return { status: 'ERROR', pesan: 'Akses Ditolak! Tingkat otoritas tidak mencukupi.' }; }
+      const isBuiltinRead = READ_ONLY_TABLES.has(table);
+      if (menu.rowCount !== 1 && !isBuiltinRead) { await audit(contextUser, aksi, table, 'BLOCKED_TABLE_NOT_WHITELISTED'); return { status: 'ERROR', pesan: 'Resource tidak terdaftar.' }; }
+      if (menu.rowCount === 1) {
+        const allowedRoles = String(menu.rows[0].roles_allowed || '').split(/[,.]/).map(normalizeRole).filter(Boolean);
+        if (!(allowedRoles.includes('all') || allowedRoles.includes(role))) { await audit(contextUser, aksi, table, 'BLOCKED_ROLE'); return { status: 'ERROR', pesan: 'Akses Ditolak! Tingkat otoritas tidak mencukupi.' }; }
+      } else if (!['owner', 'adminmaster'].includes(role)) {
+        await audit(contextUser, aksi, table, 'BLOCKED_BUILTIN_RESOURCE');
+        return { status: 'ERROR', pesan: 'Akses Ditolak.' };
+      }
       if (aksi === 'hapus_data' && !['owner', 'adminmaster'].includes(role)) { await audit(contextUser, aksi, table, 'BLOCKED_DELETE'); return { status: 'ERROR', pesan: 'Hanya owner/adminmaster yang dapat menghapus data.' }; }
       if (aksi === 'tambah_data' && !['owner', 'adminmaster', 'superuser'].includes(role)) { await audit(contextUser, aksi, table, 'BLOCKED_INSERT'); return { status: 'ERROR', pesan: 'Role ini tidak dapat menambah data.' }; }
 
@@ -75,7 +83,7 @@ const MandorFrontend = {
   handleExpressDynamicCRUD: async (req, res) => {
     try {
       const result = await MandorFrontend.eksekusiMenuSpesifik(req.body, req.user?.role, req.user);
-      const forbidden = result.status === 'ERROR' && /Ditolak|tidak terdaftar|tidak dapat|tidak mencukupi|tidak dapat/i.test(result.pesan || '');
+      const forbidden = result.status === 'ERROR' && /Ditolak|tidak terdaftar|tidak dapat|tidak mencukupi/i.test(result.pesan || '');
       return res.status(result.status === 'ERROR' ? (forbidden ? 403 : 400) : 200).json(result);
     } catch { return res.status(500).json({ status: 'ERROR', pesan: 'Kegagalan internal CRUD.' }); }
   }
