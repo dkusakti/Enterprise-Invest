@@ -9,7 +9,8 @@
     "start:vps": "node server.js",
     "prod:vps": "pm2 start server.js --name enterprise-api",
     "db:migrate": "node backend/database/migrate.js",
-    "db:migrate:verify": "node backend/database/migrate.js --verify"
+    "db:migrate:verify": "node backend/database/migrate.js --verify",
+    "test:security": "node --test tests/security/*.test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
