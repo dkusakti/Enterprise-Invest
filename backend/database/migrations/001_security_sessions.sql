@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE IF NOT EXISTS auth_sessions (
   id BIGSERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES login(id) ON DELETE CASCADE,
@@ -14,8 +16,7 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_active
-  ON auth_sessions(user_id, expires_at)
-  WHERE revoked_at IS NULL;
+  ON auth_sessions(user_id, expires_at) WHERE revoked_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_replaced_by
   ON auth_sessions(replaced_by);
 
