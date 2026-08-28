@@ -27,50 +27,30 @@ class JwtTokenController {
   }
 
   async rotateSessionToken(refreshToken, metadata = {}) {
-    if (!refreshToken || typeof refreshToken !== 'string' || refreshToken.length < 40 || refreshToken.length > 256) {
-      return { success: false, error: 'Refresh token tidak valid.' };
-    }
-
+    if (!refreshToken || typeof refreshToken !== 'string' || refreshToken.length < 40 || refreshToken.length > 256) return { success: false, error: 'Refresh token tidak valid.' };
     const client = await db.connect();
     try {
       await client.query('BEGIN');
       const session = await sessionRepository.findForUpdate(client, refreshToken);
-      if (!session) {
-        await client.query('ROLLBACK');
-        return { success: false, error: 'Refresh token tidak sah.' };
-      }
-
+      if (!session) { await client.query('ROLLBACK'); return { success: false, error: 'Refresh token tidak sah.' }; }
       if (session.revoked_at) {
-        await client.query(
-          `UPDATE auth_sessions
-              SET revoked_at = COALESCE(revoked_at, NOW()), last_used_at = NOW()
-            WHERE user_id = $1 AND revoked_at IS NULL`,
-          [session.user_id]
-        );
+        await client.query(`UPDATE auth_sessions SET revoked_at = COALESCE(revoked_at, NOW()), last_used_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL`, [session.user_id]);
         await client.query('COMMIT');
         return { success: false, reused: true, error: 'Refresh token sudah digunakan atau dicabut.' };
       }
-
       if (new Date(session.expires_at).getTime() <= Date.now()) {
-        await client.query(
-          `UPDATE auth_sessions SET revoked_at = NOW(), last_used_at = NOW() WHERE id = $1`,
-          [session.id]
-        );
+        await client.query(`UPDATE auth_sessions SET revoked_at = NOW(), last_used_at = NOW() WHERE id = $1`, [session.id]);
         await client.query('COMMIT');
         return { success: false, expired: true, error: 'Refresh token sudah kedaluwarsa.' };
       }
 
-      const userResult = await client.query(
-        `SELECT id, username, role FROM login WHERE id = $1 LIMIT 1`,
-        [session.user_id]
-      );
+      const userResult = await client.query(`SELECT id, username, role FROM login WHERE id = $1 LIMIT 1`, [session.user_id]);
       const user = userResult.rows[0];
       if (!user) {
         await client.query(`UPDATE auth_sessions SET revoked_at = NOW() WHERE id = $1`, [session.id]);
         await client.query('COMMIT');
         return { success: false, error: 'Akun tidak ditemukan.' };
       }
-
       const dto = new JwtTokenDto({ ...user, role: normalizeRole(user.role) });
       if (!dto.isValid()) {
         await client.query(`UPDATE auth_sessions SET revoked_at = NOW() WHERE id = $1`, [session.id]);
@@ -81,69 +61,52 @@ class JwtTokenController {
       const nextRefresh = sessionService.createOpaqueRefreshToken();
       const nextExpires = new Date(Date.now() + sessionService.refreshTtlSeconds * 1000);
       const inserted = await client.query(
-        `INSERT INTO auth_sessions
-          (user_id, refresh_token_hash, expires_at, device_fingerprint, user_agent, ip_address)
-         VALUES ($1, encode(digest($2, 'sha256'), 'hex'), $3, $4, $5, $6)
-         RETURNING id`,
-        [
-          dto.id,
-          nextRefresh,
-          nextExpires,
-          session.device_fingerprint,
-          metadata.userAgent || session.user_agent,
-          metadata.ipAddress || session.ip_address
-        ]
+        `INSERT INTO auth_sessions (user_id, refresh_token_hash, expires_at, device_fingerprint, user_agent, ip_address)
+         VALUES ($1, encode(digest($2, 'sha256'), 'hex'), $3, $4, $5, $6) RETURNING id`,
+        [dto.id, nextRefresh, nextExpires, session.device_fingerprint, metadata.userAgent || session.user_agent, metadata.ipAddress || session.ip_address]
       );
-
       const nextSessionId = inserted.rows[0].id;
       const access = jwtTokenService.issueAccessToken(dto, nextSessionId);
-
       const revoked = await client.query(
-        `UPDATE auth_sessions
-            SET revoked_at = NOW(), replaced_by = $2, last_used_at = NOW()
-          WHERE id = $1 AND revoked_at IS NULL`,
+        `UPDATE auth_sessions SET revoked_at = NOW(), replaced_by = $2, last_used_at = NOW() WHERE id = $1 AND revoked_at IS NULL`,
         [session.id, nextSessionId]
       );
-
-      if (revoked.rowCount !== 1) {
-        await client.query('ROLLBACK');
-        return { success: false, reused: true, error: 'Refresh token sudah digunakan.' };
-      }
-
+      if (revoked.rowCount !== 1) { await client.query('ROLLBACK'); return { success: false, reused: true, error: 'Refresh token sudah digunakan.' }; }
       await client.query('COMMIT');
-      return {
-        success: true,
-        accessToken: access.accessToken,
-        refreshToken: nextRefresh,
-        expiresAt: access.expiresAt
-      };
+      return { success: true, accessToken: access.accessToken, refreshToken: nextRefresh, expiresAt: access.expiresAt };
     } catch (error) {
       try { await client.query('ROLLBACK'); } catch {}
       console.error(`[JWT_ROTATION_ERROR] ${error.message}`);
       return { success: false, error: 'Gagal melakukan rotasi sesi.' };
-    } finally {
-      client.release();
-    }
+    } finally { client.release(); }
   }
 
   async revokeSession(refreshToken) {
     if (!refreshToken || typeof refreshToken !== 'string') return { success: true };
-    await db.query(
-      `UPDATE auth_sessions
-          SET revoked_at = COALESCE(revoked_at, NOW()), last_used_at = NOW()
-        WHERE refresh_token_hash = $1`,
-      [sessionRepository.hashRefreshToken(refreshToken)]
-    );
+    await db.query(`UPDATE auth_sessions SET revoked_at = COALESCE(revoked_at, NOW()), last_used_at = NOW() WHERE refresh_token_hash = $1`, [sessionRepository.hashRefreshToken(refreshToken)]);
     return { success: true };
   }
 
-  async revokeSessionById(sessionId) {
-    if (sessionId) await sessionService.revoke(sessionId);
-    return { success: true };
-  }
+  async revokeSessionById(sessionId) { if (sessionId) await sessionService.revoke(sessionId); return { success: true }; }
 
   async validateActiveToken(token) {
-    return jwtTokenService.verifyAccessToken(token);
+    const access = jwtTokenService.verifyAccessToken(token);
+    if (access.success) return access;
+
+    // Hanya dipakai oleh Electron main-process gate. HTTP bearer authentication
+    // tetap memanggil verifyAccessToken() secara langsung dan tidak menerima refresh token.
+    if (typeof token !== 'string' || token.length < 40 || token.length > 256) return access;
+    const refreshHash = sessionRepository.hashRefreshToken(token);
+    const result = await db.query(
+      `SELECT l.id, l.username, l.role
+         FROM auth_sessions s
+         JOIN login l ON l.id = s.user_id
+        WHERE s.refresh_token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > NOW()
+        LIMIT 1`,
+      [refreshHash]
+    );
+    if (result.rowCount !== 1) return access;
+    return { success: true, data: { id: result.rows[0].id, username: result.rows[0].username, role: normalizeRole(result.rows[0].role), refreshToken: token } };
   }
 
   expressAuthenticateToken = async (req, res, next) => {
@@ -151,39 +114,16 @@ class JwtTokenController {
       const authHeader = req.headers.authorization;
       const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
       if (!token) return res.status(401).json({ success: false, error: 'Token autentikasi diperlukan.' });
-
       const validation = jwtTokenService.verifyAccessToken(token);
-      if (!validation.success) {
-        return res.status(validation.expired ? 401 : 403).json({
-          success: false,
-          expired: validation.expired || false,
-          error: validation.error
-        });
-      }
+      if (!validation.success) return res.status(validation.expired ? 401 : 403).json({ success: false, expired: validation.expired || false, error: validation.error });
 
       const active = await db.query(
-        `SELECT l.id, l.username, l.role
-           FROM auth_sessions s
-           JOIN login l ON l.id = s.user_id
-          WHERE s.id = $1
-            AND s.user_id = $2
-            AND s.revoked_at IS NULL
-            AND s.expires_at > NOW()
-          LIMIT 1`,
+        `SELECT l.id, l.username, l.role FROM auth_sessions s JOIN login l ON l.id = s.user_id
+          WHERE s.id = $1 AND s.user_id = $2 AND s.revoked_at IS NULL AND s.expires_at > NOW() LIMIT 1`,
         [validation.user.sessionId, validation.user.id]
       );
-
-      if (active.rowCount !== 1) {
-        return res.status(401).json({ success: false, error: 'Sesi sudah dicabut atau tidak aktif.' });
-      }
-
-      req.user = {
-        id: Number(active.rows[0].id),
-        username: String(active.rows[0].username),
-        role: normalizeRole(active.rows[0].role),
-        sessionId: validation.user.sessionId,
-        jti: validation.user.jti
-      };
+      if (active.rowCount !== 1) return res.status(401).json({ success: false, error: 'Sesi sudah dicabut atau tidak aktif.' });
+      req.user = { id: Number(active.rows[0].id), username: String(active.rows[0].username), role: normalizeRole(active.rows[0].role), sessionId: validation.user.sessionId, jti: validation.user.jti };
       return next();
     } catch (error) {
       console.error(`[JWT_AUTH_ERROR] ${error.message}`);
@@ -193,17 +133,9 @@ class JwtTokenController {
 
   expressRotateSessionToken = async (req, res) => {
     try {
-      const result = await this.rotateSessionToken(
-        String(req.body?.refreshToken || ''),
-        {
-          userAgent: req.get('user-agent') || null,
-          ipAddress: req.ip || null
-        }
-      );
+      const result = await this.rotateSessionToken(String(req.body?.refreshToken || ''), { userAgent: req.get('user-agent') || null, ipAddress: req.ip || null });
       return res.status(result.success ? 200 : 401).json(result);
-    } catch {
-      return res.status(500).json({ success: false, error: 'Kesalahan internal saat refresh sesi.' });
-    }
+    } catch { return res.status(500).json({ success: false, error: 'Kesalahan internal saat refresh sesi.' }); }
   };
 }
 
