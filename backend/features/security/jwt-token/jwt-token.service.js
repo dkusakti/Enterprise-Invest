@@ -1,30 +1,40 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import JwtTokenDto from './jwt-token.dto.js';
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const ISSUER = process.env.JWT_ISSUER || 'enterprise-invest';
 const AUDIENCE = process.env.JWT_AUDIENCE || 'enterprise-invest-client';
 
-if (!ACCESS_SECRET || !REFRESH_SECRET) throw new Error('JWT_ACCESS_SECRET dan JWT_REFRESH_SECRET wajib dikonfigurasi.');
-if (ACCESS_SECRET.length < 32 || REFRESH_SECRET.length < 32) throw new Error('JWT secret harus minimal 32 karakter.');
+if (!ACCESS_SECRET || ACCESS_SECRET.length < 32) {
+  throw new Error('JWT_ACCESS_SECRET wajib dikonfigurasi dan minimal 32 karakter.');
+}
 
 const normalizeRole = (role) => String(role || 'user').trim().toLowerCase().replace(/\s+/g, '');
 
 class JwtTokenService {
   constructor() {
     this.accessSecret = ACCESS_SECRET;
-    this.refreshSecret = REFRESH_SECRET;
     this.accessExpiresIn = Number(process.env.JWT_ACCESS_EXPIRES_SECONDS || 900);
+    if (!Number.isInteger(this.accessExpiresIn) || this.accessExpiresIn < 60 || this.accessExpiresIn > 3600) {
+      throw new Error('JWT_ACCESS_EXPIRES_SECONDS harus antara 60 dan 3600 detik.');
+    }
   }
 
   createAccessToken(user, sessionId) {
     const dto = new JwtTokenDto({ ...user, role: normalizeRole(user.role) });
-    if (!dto.isValid()) throw new Error('Data user tidak valid untuk access token.');
+    if (!dto.isValid() || !sessionId) throw new Error('Data user/session tidak valid untuk access token.');
     return jwt.sign(
       { typ: 'access', username: dto.username, role: dto.role, sid: String(sessionId) },
       this.accessSecret,
-      { algorithm: 'HS512', subject: String(dto.id), issuer: ISSUER, audience: AUDIENCE, expiresIn: this.accessExpiresIn }
+      {
+        algorithm: 'HS512',
+        subject: String(dto.id),
+        jwtid: crypto.randomUUID(),
+        issuer: ISSUER,
+        audience: AUDIENCE,
+        expiresIn: this.accessExpiresIn
+      }
     );
   }
 
@@ -35,18 +45,24 @@ class JwtTokenService {
 
   verifyAccessToken(token) {
     try {
+      if (typeof token !== 'string' || token.length < 20 || token.length > 8192) throw new Error('Invalid token format');
       const payload = jwt.verify(token, this.accessSecret, {
-        algorithms: ['HS512'], issuer: ISSUER, audience: AUDIENCE
+        algorithms: ['HS512'],
+        issuer: ISSUER,
+        audience: AUDIENCE,
+        complete: false
       });
-      if (payload.typ !== 'access' || !payload.sid || !payload.sub) throw new Error('Tipe token atau session tidak valid.');
+      if (payload.typ !== 'access' || !payload.sid || !payload.sub || !payload.jti) throw new Error('Invalid access token claims');
+      const id = Number(payload.sub);
+      if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid subject');
       return {
         success: true,
         user: {
-          id: Number(payload.sub),
+          id,
           username: String(payload.username || ''),
           role: normalizeRole(payload.role),
           sessionId: String(payload.sid),
-          jti: String(payload.jti || '')
+          jti: String(payload.jti)
         }
       };
     } catch (error) {
