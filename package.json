@@ -7,12 +7,15 @@
   "scripts": {
     "start": "electron .",
     "start:vps": "node server.js",
-    "prod:vps": "pm2 start server.js --name enterprise-api"
+    "prod:vps": "pm2 start server.js --name enterprise-api",
+    "db:migrate": "node backend/database/migrate.js",
+    "db:migrate:verify": "node backend/database/migrate.js --verify"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.3"
   },
   "devDependencies": {
