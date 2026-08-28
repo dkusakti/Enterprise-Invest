@@ -12,6 +12,7 @@ const run = async () => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock($1)', [81726351]);
     await client.query(`CREATE TABLE IF NOT EXISTS schema_migrations (version VARCHAR(255) PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
     const files = (await fs.readdir(migrationsDir)).filter((f) => f.endsWith('.sql')).sort();
     const applied = await client.query('SELECT version FROM schema_migrations ORDER BY version');
