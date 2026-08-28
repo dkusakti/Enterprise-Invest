@@ -1,204 +1,111 @@
-// backend/infrastructure/ipc/mandor-frontend.js (PART 1)
-import db from '../../database/pool.js'; 
+import db from '../../database/pool.js';
 
-const CACHE_STRUKTUR_RAM = {};
+const CACHE_STRUKTUR_RAM = new Map();
+const PROTECTED_TABLES = new Set(['login', 'auth_sessions', 'schema_migrations']);
+const SENSITIVE_COLUMNS = new Set(['password', 'password_hash', 'refresh_token', 'refresh_token_hash', 'otp_secret']);
+const ROLE_ALIASES = { admin: 'adminmaster', master_admin: 'adminmaster', super_user: 'superuser' };
+const normalizeRole = (role) => {
+  const normalized = String(role || 'user').trim().toLowerCase().replace(/\s+/g, '');
+  return ROLE_ALIASES[normalized] || normalized;
+};
+const quoteIdentifier = (value) => `"${String(value).replace(/"/g, '""')}"`;
+const audit = async (user, action, table, status) => {
+  try {
+    await db.query(
+      `INSERT INTO activity_log (user_id, username, action_name, target_table, status) VALUES ($1,$2,$3,$4,$5)`,
+      [user?.id || null, user?.username || 'unknown_user', String(action), String(table), String(status)]
+    );
+  } catch (error) { console.error(`[AUDIT_LOG_FAILURE] ${error.message}`); }
+};
 
 const MandorFrontend = {
-    /**
-     * FUNGSI INTERNAL: Mencatat riwayat operasi siber secara otomatis ke database (Audit Trail)
-     * Menjamin pelacakan aktivitas mandor dan karyawan tersimpan linear tanpa merusak tabel login.
-     */
-    catatLogAktivitas: async (userId, username, aksi, targetTabel, status) => {
-        try {
-            const queryLog = `
-                INSERT INTO activity_log (user_id, username, action_name, target_table, status) 
-                VALUES ($1, $2, $3, $4, $5);
-            `;
-            await db.query(queryLog, [
-                userId ? parseInt(userId, 10) : null,
-                String(username || 'System'),
-                String(aksi),
-                String(targetTabel),
-                String(status)
-            ]);
-        } catch (logError) {
-            console.error(`[MANDOR_LOG_FAILURE] [${new Date().toISOString()}] Gagal menulis log audit: ${logError.message}`);
-        }
-    },
+  catatLogAktivitas: audit,
 
-    /**
-     * Inti dari mesin otomatisasi CRUD dinamis sepadan dengan kasta peran pengguna.
-     */
-    eksekusiMenuSpesifik: async (suratPerintah, currentSessionRole, contextUser = {}) => {
-        const timestamp = new Date().toISOString();
-        const { aksi, target_tabel } = suratPerintah;
+  eksekusiMenuSpesifik: async (suratPerintah, currentSessionRole, contextUser = {}) => {
+    const timestamp = new Date().toISOString();
+    if (!suratPerintah || typeof suratPerintah !== 'object' || Array.isArray(suratPerintah)) return { status: 'ERROR', pesan: 'Surat perintah tidak valid.' };
+    const { aksi, target_tabel: targetTable } = suratPerintah;
+    const table = String(targetTable || '').trim().toLowerCase();
+    const role = normalizeRole(currentSessionRole);
+    if (!table || !['ambil_data', 'tambah_data', 'hapus_data'].includes(aksi)) return { status: 'ERROR', pesan: 'Operasi CRUD tidak valid.' };
+    if (!/^[a-z_][a-z0-9_]{0,62}$/.test(table)) return { status: 'ERROR', pesan: 'Nama tabel tidak valid.' };
+    if (PROTECTED_TABLES.has(table)) return { status: 'ERROR', pesan: 'Akses ke tabel sistem ditolak.' };
 
-        // Ekstrak identitas asli pengguna dari penampung konteks untuk kebutuhan pencatatan log
-        const logUserId = contextUser.id || null;
-        const logUsername = contextUser.username || 'unknown_user';
+    try {
+      // DENY-BY-DEFAULT: setiap tabel yang dapat dipakai CRUD harus terdaftar di app_menus.
+      const menu = await db.query(`SELECT roles_allowed FROM app_menus WHERE LOWER(folder_name) = $1 LIMIT 1`, [table]);
+      if (menu.rowCount !== 1) {
+        await audit(contextUser, aksi, table, 'BLOCKED_TABLE_NOT_WHITELISTED');
+        return { status: 'ERROR', pesan: 'Tabel tidak terdaftar sebagai resource aplikasi.' };
+      }
+      const allowedRoles = String(menu.rows[0].roles_allowed || '').split(',').map(normalizeRole).filter(Boolean);
+      const roleAllowed = allowedRoles.includes('all') || allowedRoles.includes(role) || (role === 'adminmaster' && allowedRoles.includes('admin'));
+      if (!roleAllowed) {
+        await audit(contextUser, aksi, table, 'BLOCKED_ROLE');
+        return { status: 'ERROR', pesan: 'Akses Ditolak! Tingkat otoritas tidak mencukupi.' };
+      }
 
-        if (!target_tabel || !aksi) {
-            return { status: 'ERROR', pesan: 'Surat perintah tidak lengkap! target_tabel wajib diisi.' };
-        }
-        
-        const namaTabelSakti = target_tabel.trim().toLowerCase();
-        if (!/^[a-zA-Z0-9_]+$/.test(namaTabelSakti)) {
-            console.warn(`[MANDOR_FRONTEND_WARN] [${timestamp}] Percobaan manipulasi nama tabel diblokir: "${namaTabelSakti}"`);
-            return { status: 'ERROR', pesan: 'Akses Ditolak: Nama tabel mengandung karakter ilegal terlarang!' };
-        }
-        
-        const roleSesiAktif = String(currentSessionRole || 'user').trim().toLowerCase().replace(/\s+/g, '');
-        
-        try {
-            const menuRuleQuery = `SELECT roles_allowed FROM app_menus WHERE folder_name = $1 LIMIT 1;`;
-            const menuRuleResult = await db.query(menuRuleQuery, [namaTabelSakti]);
+      if (aksi === 'hapus_data' && !['owner', 'adminmaster'].includes(role)) {
+        await audit(contextUser, aksi, table, 'BLOCKED_DELETE');
+        return { status: 'ERROR', pesan: 'Hanya owner/adminmaster yang dapat menghapus data.' };
+      }
 
-            if (menuRuleResult.rows.length > 0) {
-                const rawRolesAllowed = String(menuRuleResult.rows[0].roles_allowed || '').toLowerCase();
-                const arrayRolesAllowed = rawRolesAllowed.split(',').map(r => r.trim());
-                
-                const cleanRoleSesi = roleSesiAktif;
-                let isAllowed = arrayRolesAllowed.includes('all') || arrayRolesAllowed.includes(cleanRoleSesi);
-                
-                if (cleanRoleSesi === 'admin' || cleanRoleSesi === 'adminmaster') {
-                    if (arrayRolesAllowed.includes('admin') || arrayRolesAllowed.includes('adminmaster')) {
-                        isAllowed = true;
-                    }
-                }
-                if (!isAllowed) {
-                    console.warn(`[🚨 BLOKIR SYSTEM] [${timestamp}] Peran "${roleSesiAktif}" dilarang keras memuat tabel "${namaTabelSakti}".`);
-                    // Rekam jejak percobaan pembajakan ilegal pengguna ke tabel activity_log
-                    await MandorFrontend.catatLogAktivitas(logUserId, logUsername, aksi, namaTabelSakti, 'BLOCKED');
-                    return { status: 'ERROR', pesan: 'Akses Ditolak! Tingkat otoritas Anda tidak mencukupi untuk memuat data tabel ini.' };
-                }
-            }
+      if (!CACHE_STRUKTUR_RAM.has(table)) {
+        const schema = await db.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position`, [table]);
+        if (!schema.rowCount) return { status: 'ERROR', pesan: 'Resource database tidak ditemukan.' };
+        CACHE_STRUKTUR_RAM.set(table, schema.rows.map((row) => row.column_name));
+      }
+      const columns = CACHE_STRUKTUR_RAM.get(table);
+      const safeColumns = columns.filter((column) => !SENSITIVE_COLUMNS.has(column.toLowerCase()));
 
-            if (!CACHE_STRUKTUR_RAM[namaTabelSakti]) {
-                const scanQuery = `SELECT column_name FROM information_schema.columns WHERE table_name = $1;`;
-                const hasilScan = await db.query(scanQuery, [namaTabelSakti]);
-                if (hasilScan.rows.length === 0) {
-                    return { status: 'ERROR', pesan: `Akses Ditolak! Infrastruktur tabel '${namaTabelSakti}' tidak eksis di database.` };
-                }
-                CACHE_STRUKTUR_RAM[namaTabelSakti] = hasilScan.rows.map(row => row.column_name);
-                console.log(`[MANDOR RECORD] [${timestamp}] Sukses mengunci skema tabel "${namaTabelSakti}" ke RAM.`);
-            }
+      if (aksi === 'ambil_data') {
+        let requested = Array.isArray(suratPerintah.kolom_diminta) ? suratPerintah.kolom_diminta.map(String) : safeColumns;
+        requested = requested.map((column) => column.trim()).filter((column) => safeColumns.includes(column));
+        if (!requested.length) return { status: 'ERROR', pesan: 'Tidak ada kolom yang diizinkan.' };
+        const orderColumn = columns.includes('sort_order') ? 'sort_order' : (columns.includes('id') ? 'id' : columns[0]);
+        const limit = Math.min(Math.max(Number(suratPerintah.limit) || 100, 1), 500);
+        const offset = Math.max(Number(suratPerintah.offset) || 0, 0);
+        const sql = `SELECT ${requested.map(quoteIdentifier).join(', ')} FROM ${quoteIdentifier(table)} ORDER BY ${quoteIdentifier(orderColumn)} ASC LIMIT $1 OFFSET $2`;
+        const result = await db.query(sql, [limit, offset]);
+        if (table !== 'activity_log') await audit(contextUser, aksi, table, 'SUCCESS');
+        return { status: 'OK', data: result.rows, pagination: { limit, offset, returned: result.rowCount } };
+      }
 
-            const daftarKolomSah = CACHE_STRUKTUR_RAM[namaTabelSakti];
-// backend/infrastructure/ipc/mandor-frontend.js (PART 2)
-            if (aksi === 'ambil_data') {
-                let stringKolomAman = daftarKolomSah.map(k => `"${k}"`).join(', ');
-                
-                if (suratPerintah.kolom_diminta && Array.isArray(suratPerintah.kolom_diminta) && suratPerintah.kolom_diminta.length > 0) {
-                    const kolomTersaring = suratPerintah.kolom_diminta
-                        .map(k => String(k).trim())
-                        .filter(k => daftarKolomSah.includes(k));
-                    if (kolomTersaring.length > 0) {
-                        stringKolomAman = kolomTersaring.map(k => `"${k}"`).join(', ');
-                    }
-                }
+      if (aksi === 'tambah_data') {
+        if (table === 'activity_log') return { status: 'ERROR', pesan: 'Audit log tidak dapat dimanipulasi melalui CRUD dinamis.' };
+        const input = suratPerintah.data_input;
+        if (!input || typeof input !== 'object' || Array.isArray(input)) return { status: 'ERROR', pesan: 'data_input tidak valid.' };
+        const keys = Object.keys(input).filter((key) => safeColumns.includes(key) && key !== 'id');
+        if (!keys.length) return { status: 'ERROR', pesan: 'Tidak ada kolom input yang diizinkan.' };
+        const sql = `INSERT INTO ${quoteIdentifier(table)} (${keys.map(quoteIdentifier).join(', ')}) VALUES (${keys.map((_, index) => `$${index + 1}`).join(', ')}) RETURNING *`;
+        const result = await db.query(sql, keys.map((key) => input[key]));
+        await audit(contextUser, aksi, table, 'SUCCESS');
+        return { status: 'OK', data: result.rows[0] };
+      }
 
-                let kolomOrder = 'id ASC';
-                if (daftarKolomSah.includes('sort_order')) {
-                    kolomOrder = '"sort_order" ASC';
-                } else if (daftarKolomSah.includes('id')) {
-                    kolomOrder = '"id" ASC';
-                } else if (daftarKolomSah.length > 0) {
-                    kolomOrder = `"${daftarKolomSah[0]}" ASC`;
-                }
-
-                const querySakti = `SELECT ${stringKolomAman} FROM "${namaTabelSakti}" ORDER BY ${kolomOrder}`;
-                const responDb = await db.query(querySakti);
-
-                if (namaTabelSakti === 'app_menus') {
-                    const barisMenuTersaring = responDb.rows.filter(menu => {
-                        const roles = String(menu.roles_allowed || '').split(',').map(r => r.trim().toLowerCase());
-                        const cleanRoleSesi = String(roleSesiAktif).trim().toLowerCase();
-
-                        if (cleanRoleSesi === 'admin' || cleanRoleSesi === 'adminmaster') {
-                            return roles.includes('all') || roles.includes('admin') || roles.includes('adminmaster');
-                        }
-                        return roles.includes('all') || roles.includes(cleanRoleSesi);
-                    });
-                    return { status: 'OK', data: barisMenuTersaring };
-                }
-
-                // Proteksi Infinite Loop: Jangan catat log jika sedang membaca tabel activity_log itu sendiri
-                if (namaTabelSakti !== 'activity_log') {
-                    await MandorFrontend.catatLogAktivitas(logUserId, logUsername, aksi, namaTabelSakti, 'SUCCESS');
-                }
-                return { status: 'OK', data: responDb.rows };
-            }
-
-            if (aksi === 'tambah_data') {
-                const { data_input } = suratPerintah;
-                if (!data_input || typeof data_input !== 'object' || Array.isArray(data_input)) {
-                    return { status: 'ERROR', pesan: 'Struktur data input tidak valid.' };
-                }
-                
-                const kolomInputSaring = Object.keys(data_input).filter(k => daftarKolomSah.includes(k.trim()));
-                if (kolomInputSaring.length === 0) return { status: 'ERROR', pesan: 'Kolom input tidak cocok dengan skema DB!' };
-
-                const queryInsert = `INSERT INTO "${namaTabelSakti}" (${kolomInputSaring.map(k => `"${k}"`).join(', ')}) VALUES (${kolomInputSaring.map((_, i) => `$${i + 1}`).join(', ')})`;
-                await db.query(queryInsert, kolomInputSaring.map(k => data_input[k]));
-                
-                await MandorFrontend.catatLogAktivitas(logUserId, logUsername, aksi, namaTabelSakti, 'SUCCESS');
-                return { status: 'OK', pesan: `Sukses menyimpan data ke tabel ${namaTabelSakti}!` };
-            }
-
-            if (aksi === 'hapus_data') {
-                const { id_target } = suratPerintah;
-                if (!id_target || !daftarKolomSah.includes('id')) return { status: 'ERROR', pesan: 'Operasi hapus tidak sah.' };
-                
-                const finalIdTarget = isNaN(Number(id_target)) ? String(id_target).trim() : parseInt(id_target, 10);
-                await db.query(`DELETE FROM "${namaTabelSakti}" WHERE "id" = $1`, [finalIdTarget]);
-                
-                await MandorFrontend.catatLogAktivitas(logUserId, logUsername, aksi, namaTabelSakti, 'SUCCESS');
-                return { status: 'OK', pesan: 'Data berhasil dihapus.' };
-            }
-
-            return { status: 'ERROR', pesan: 'Aksi tidak dikenali oleh Mandor.' };
-
-        } catch (error) {
-            console.error(`[MANDOR_FRONTEND_FATAL] [${timestamp}] Fatal Database Error: ${error.message}`);
-            await MandorFrontend.catatLogAktivitas(logUserId, logUsername, aksi, namaTabelSakti, 'FAILED');
-            
-            setTimeout(() => { 
-                db.emit('emergency_logout'); 
-            }, 1000);
-            
-            return { status: 'ERROR', pesan: 'Gagal memproses manipulasi kueri internal data.' };
-        }
-    },
-
-    handleExpressDynamicCRUD: async (req, res) => {
-        const timestamp = new Date().toISOString();
-        try {
-            const suratPerintah = req.body;
-            const currentSessionRole = req.user?.role || 'user';
-            
-            // Konfigurasi konteks user asil hasil urai JWT VPS untuk disalurkan ke sistem log
-            const contextUser = {
-                id: req.user?.id || null,
-                username: req.user?.username || 'vps_client'
-            };
-
-            const result = await MandorFrontend.eksekusiMenuSpesifik(suratPerintah, currentSessionRole, contextUser);
-            
-            if (result && result.status === 'ERROR') {
-                if (result.pesan.includes('Otoritas Anda tidak mencukupi') || result.pesan.includes('Akses Ditolak')) {
-                    return res.status(403).json(result); 
-                }
-                return res.status(400).json(result); 
-            }
-            return res.status(200).json(result); 
-        } catch (expressDynamicError) {
-            console.error(`[EXPRESS_DYNAMIC_CRUD_FATAL] [${timestamp}] Kegagalan total API dinamis: ${expressDynamicError.message}`);
-            return res.status(500).json({ 
-                status: 'ERROR', 
-                pesan: 'Terjadi kegagalan sistem internal VPS saat mengolah kueri dinamis.' 
-            });
-        }
+      if (table === 'activity_log') return { status: 'ERROR', pesan: 'Audit log tidak dapat dihapus.' };
+      const id = suratPerintah.id_target;
+      if (id === undefined || id === null || !columns.includes('id')) return { status: 'ERROR', pesan: 'id_target wajib dan tabel harus memiliki kolom id.' };
+      const result = await db.query(`DELETE FROM ${quoteIdentifier(table)} WHERE ${quoteIdentifier('id')} = $1 RETURNING id`, [id]);
+      if (!result.rowCount) return { status: 'ERROR', pesan: 'Data tidak ditemukan.' };
+      await audit(contextUser, aksi, table, 'SUCCESS');
+      return { status: 'OK', pesan: 'Data berhasil dihapus.', id: result.rows[0].id };
+    } catch (error) {
+      console.error(`[MANDOR_FRONTEND_FATAL] [${timestamp}] ${error.message}`);
+      await audit(contextUser, aksi, table, 'FAILED');
+      return { status: 'ERROR', pesan: 'Gagal memproses operasi database.' };
     }
+  },
+
+  handleExpressDynamicCRUD: async (req, res) => {
+    try {
+      const result = await MandorFrontend.eksekusiMenuSpesifik(req.body, req.user?.role, req.user);
+      const status = result.status === 'ERROR' ? (result.pesan.includes('Ditolak') || result.pesan.includes('tidak terdaftar') ? 403 : 400) : 200;
+      return res.status(status).json(result);
+    } catch {
+      return res.status(500).json({ status: 'ERROR', pesan: 'Kegagalan internal CRUD.' });
+    }
+  }
 };
 
 export default MandorFrontend;
