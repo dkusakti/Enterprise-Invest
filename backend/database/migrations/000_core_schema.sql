@@ -20,7 +20,6 @@ CREATE TABLE IF NOT EXISTS users_devices (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_users_devices_user_id ON users_devices(user_id);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_users_devices_user_fingerprint ON users_devices(user_id, device_fingerprint);
 
 CREATE TABLE IF NOT EXISTS activity_log (
   id BIGSERIAL PRIMARY KEY,
