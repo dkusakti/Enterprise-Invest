@@ -1,6 +1,13 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import JwtTokenDto from './jwt-token.dto.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '../../../../.env') });
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const ISSUER = process.env.JWT_ISSUER || 'enterprise-invest';
@@ -49,8 +56,7 @@ class JwtTokenService {
       const payload = jwt.verify(token, this.accessSecret, {
         algorithms: ['HS512'],
         issuer: ISSUER,
-        audience: AUDIENCE,
-        complete: false
+        audience: AUDIENCE
       });
       if (payload.typ !== 'access' || !payload.sid || !payload.sub || !payload.jti) throw new Error('Invalid access token claims');
       const id = Number(payload.sub);
