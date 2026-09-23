@@ -1,4 +1,4 @@
-// frontend/pages/activity-log/activity-log.js
+// frontend/pages/sub-settings-activity-log/sub-settings-activity-log.js
 (() => {
     const timestamp = new Date().toISOString();
     console.log(`[PAGE_INIT] [${timestamp}] Memuat sirkuit tabel audit log aktivitas...`);
